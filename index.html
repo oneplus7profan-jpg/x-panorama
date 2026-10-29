@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#F4F0E8">
+  <meta name="description" content="レタッチ済み画像をX向け4枚パノラマに分割・確認・保存するローカルPWA">
+  <link rel="manifest" href="manifest.webmanifest?v=0.5.0-rc.8">
+  <link rel="icon" href="icons/icon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css?v=0.5.0-rc.8">
+  <title>X 4枚パノラマ</title>
+</head>
+<body>
+  <a class="skip-link" href="#app">メインコンテンツへ移動</a>
+  <header class="app-header">
+    <a class="brand-lockup" href="#app" aria-label="X 4枚パノラマの先頭へ">
+      <span class="brand-mark brand-mark-small" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span><strong>X 4枚パノラマ</strong><small>LOCAL PANORAMA TOOL</small></span>
+    </a>
+    <button id="installButton" class="tertiary small" type="button" hidden>インストール</button>
+  </header>
+
+  <div id="updateNotice" class="update-notice" role="status" hidden>
+    <span>新版を利用できます。作業内容を確認してから更新してください。</span>
+    <button id="applyUpdateButton" class="secondary small" type="button">再読み込み</button>
+  </div>
+
+  <main id="app" class="app-shell" tabindex="-1">
+    <h1 class="visually-hidden">X 4枚パノラマ</h1>
+    <div class="mobile-step-progress" aria-label="作業工程">
+      <div><span id="mobileStepCount">1 / 4</span><strong id="mobileStepName">画像</strong></div>
+      <span class="step-progress-track" aria-hidden="true"><span id="mobileStepBar"></span></span>
+      <details id="mobileCompletedSteps" class="mobile-completed-steps" hidden>
+        <summary>完了した工程へ戻る</summary>
+        <div id="mobileCompletedList"></div>
+      </details>
+    </div>
+    <ol class="stepper" aria-label="作業工程">
+      <li data-step-indicator="1" class="active"><button type="button" data-step-target="1" aria-current="step"><span>1</span><b>画像</b></button></li>
+      <li data-step-indicator="2"><button type="button" data-step-target="2" disabled><span>2</span><b>調整</b></button></li>
+      <li data-step-indicator="3"><button type="button" data-step-target="3" disabled><span>3</span><b>確認</b></button></li>
+      <li data-step-indicator="4"><button type="button" data-step-target="4" disabled><span>4</span><b>保存</b></button></li>
+    </ol>
+
+    <section class="step-panel active" data-step="1" aria-labelledby="step1Title">
+      <div class="selection-hero">
+        <div class="hero-copy">
+          <p class="eyebrow">X PANORAMA / LOCAL ONLY</p>
+          <h2 id="step1Title">画像を、4枚のパノラマへ。</h2>
+          <p>1枚を分割するか、4枚を並べるかを選び、端末内だけで調整・確認・保存できます。</p>
+        </div>
+        <span class="brand-mark brand-mark-hero" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      </div>
+
+      <div id="dropZone" class="drop-zone" data-selection-state="empty" role="group" aria-labelledby="selectionStateTitle" aria-describedby="selectionStateDetail" aria-busy="false">
+        <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple tabindex="-1" aria-hidden="true">
+        <div class="selection-state-header">
+          <span id="selectionStateIcon" class="drop-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" focusable="false"><path d="M12 5v14M5 12h14"/></svg></span>
+          <div id="selectionSummary" class="selection-summary">
+            <strong id="selectionStateTitle">画像を選択</strong>
+            <small id="selectionStateDetail">作り方を選んで画像を指定してください。</small>
+          </div>
+        </div>
+        <span id="selectionModeBadge" class="selection-mode-badge" hidden></span>
+        <div id="selectionIntentActions" class="selection-intent-actions" role="group" aria-label="画像の選び方">
+          <button id="chooseSingleImageButton" class="primary selection-picker-button" type="button" aria-controls="fileInput" aria-describedby="selectionStateDetail">
+            <span>1枚を選ぶ</span><small>1枚の画像を4分割</small>
+          </button>
+          <button id="chooseFourImagesButton" class="secondary selection-picker-button" type="button" aria-controls="fileInput" aria-describedby="selectionStateDetail">
+            <span>4枚を選ぶ</span><small>4枚を順番に並べる</small>
+          </button>
+        </div>
+        <button id="chooseImagesButton" class="secondary selection-picker-button" type="button" aria-controls="fileInput" aria-describedby="selectionStateDetail" hidden>画像を変更</button>
+        <button id="changeSelectionModeButton" class="ghost selection-mode-change" type="button" hidden>入力方法を変更</button>
+        <section id="selectionPreview" class="selection-preview" aria-labelledby="selectionPreviewTitle" hidden>
+          <h3 id="selectionPreviewTitle" class="visually-hidden">選択画像プレビュー</h3>
+          <div id="selectionPreviewGrid" class="selection-preview-grid"></div>
+        </section>
+        <span id="selectionPreviewStatus" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></span>
+      </div>
+
+      <div class="privacy-note">
+        <strong>画像は外部へ送信しません。</strong>
+        <span>処理はブラウザ内で完結します。</span>
+      </div>
+
+      <details class="install-guide">
+        <summary>スマホのホーム画面に追加する</summary>
+        <p><strong>iPhone：</strong>Safariの共有ボタン → 「ホーム画面に追加」</p>
+        <p><strong>Android：</strong>ブラウザメニュー → 「アプリをインストール」</p>
+      </details>
+
+      <div id="loadError" class="alert error" role="alert" hidden></div>
+    </section>
+
+    <section class="step-panel" data-step="2" aria-labelledby="step2Title">
+      <div class="section-heading inline-heading">
+        <div>
+          <h2 id="step2Title">構図・並び順を調整</h2>
+          <p id="step2Description"></p>
+        </div>
+        <button id="replaceImagesButton" class="ghost small" type="button">画像を変更</button>
+      </div>
+
+      <div id="singleEditor" hidden>
+        <div class="single-editor-layout">
+          <div class="editor-stage-column">
+            <div class="editor-card">
+              <div class="canvas-wrap">
+                <canvas id="editorCanvas" role="img" tabindex="0" aria-label="構図調整キャンバス" aria-describedby="gestureInstructions cropInfo" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Shift+ArrowUp Shift+ArrowDown Shift+ArrowLeft Shift+ArrowRight"></canvas>
+              </div>
+              <p id="gestureInstructions" class="visually-hidden">画像上では1本指のドラッグで移動、ピンチまたはマウスホイールで拡大できます。ページを上下へ動かすときは画像の外からスワイプしてください。拡大率、位置の微調整ボタン、矢印キーでも調整できます。</p>
+              <p id="gestureHint" class="gesture-hint"><svg class="icon icon-small" viewBox="0 0 24 24" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7h.01"/></svg><span id="gestureHintText">画像上はドラッグで移動、ピンチで拡大。ページは画像の外から上下に動かせます。</span></p>
+              <p id="adjustmentStatus" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></p>
+            </div>
+          </div>
+          <aside class="editor-controls" aria-label="構図調整の操作">
+            <section class="control-section zoom-section" aria-labelledby="zoomTitle">
+              <div class="control-title-row"><h3 id="zoomTitle">拡大率</h3><output id="zoomValue" for="zoomRange">100%</output></div>
+              <div class="zoom-controls">
+                <button id="zoomOutButton" class="secondary icon-control" type="button" aria-label="5%縮小"><svg class="icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+                <input id="zoomRange" type="range" min="100" max="800" step="1" value="100" aria-label="拡大率">
+                <button id="zoomInButton" class="secondary icon-control" type="button" aria-label="5%拡大"><svg class="icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+              </div>
+            </section>
+
+            <div class="editor-actions">
+              <button id="fitButton" type="button" class="secondary">全体に合わせる</button>
+              <button id="centerButton" type="button" class="secondary">中央へ</button>
+              <button id="resetButton" type="button" class="secondary">初期状態に戻す</button>
+            </div>
+
+            <details class="nudge-settings">
+              <summary>位置を微調整</summary>
+              <p>1回で表示範囲の1%、Shift＋矢印キーで5%移動します。</p>
+              <div class="nudge-grid" aria-label="画像の位置を微調整">
+                <button type="button" class="secondary" data-nudge="up" aria-label="画像を上へ移動"><svg class="icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="m6 14 6-6 6 6"/></svg></button>
+                <button type="button" class="secondary" data-nudge="left" aria-label="画像を左へ移動"><svg class="icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
+                <button type="button" class="secondary" data-nudge="right" aria-label="画像を右へ移動"><svg class="icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button>
+                <button type="button" class="secondary" data-nudge="down" aria-label="画像を下へ移動"><svg class="icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="m6 10 6 6 6-6"/></svg></button>
+              </div>
+            </details>
+
+            <details id="adjustmentDetails" class="adjustment-settings">
+              <summary>詳細設定 <span id="adjustmentSummary">比率・寸法・ガイド</span></summary>
+              <div class="adjustment-settings-body">
+                <div class="editor-toolbar compact-grid">
+                  <label>
+                    <span>出力プリセット</span>
+                    <select id="presetSelect">
+                      <option value="standard">3:2｜6480 × 4320</option>
+                      <option value="vrchat8k">16:9｜7680 × 4320</option>
+                      <option value="source">元画像を拡大しない最大サイズ</option>
+                      <option value="custom">カスタム</option>
+                    </select>
+                  </label>
+                  <div id="customSizeFields" class="custom-size" hidden>
+                    <label><span>全体幅</span><input id="customWidth" inputmode="numeric" type="number" min="400" max="16000" step="4" value="6480"></label>
+                    <label><span>全体高さ</span><input id="customHeight" inputmode="numeric" type="number" min="400" max="16000" step="1" value="4320"></label>
+                  </div>
+                </div>
+                <section class="guide-settings" aria-labelledby="guideSettingsTitle">
+                  <h3 id="guideSettingsTitle">ガイド設定 <span id="seamGuideStatus">4分割線：オン</span></h3>
+                  <div class="toggle-grid">
+                    <label><input id="guideSeams" type="checkbox" checked><span>4分割線</span></label>
+                    <label><input id="guideCenters" type="checkbox"><span>各パネル中心</span></label>
+                    <label><input id="guideSafe" type="checkbox" checked><span>境界注意帯</span></label>
+                    <label><input id="guideThirds" type="checkbox"><span>三分割線</span></label>
+                    <label class="subject-guide"><span>主役位置</span><select id="subjectGuide"><option value="none">なし</option><option value="panel2">2枚目の中心</option><option value="panel3">3枚目の中心</option></select></label>
+                  </div>
+                </section>
+                <dl id="cropInfo" class="info-strip crop-info"></dl>
+              </div>
+            </details>
+            <div id="customSizeAlert" class="alert error" role="alert" hidden></div>
+          </aside>
+        </div>
+      </div>
+
+      <div id="fourEditor" hidden>
+        <div class="four-tools">
+          <button id="suggestOrderButton" class="secondary" type="button">境界から並び順を提案</button>
+          <button id="undoOrderButton" class="tertiary" type="button" hidden>元の順番に戻す</button>
+          <span>左右ボタン、またはPCではドラッグで変更できます。</span>
+        </div>
+        <div id="orderError" class="alert error" role="alert" hidden></div>
+        <ol id="orderList" class="order-list" aria-label="画像の並び順"></ol>
+        <p id="orderStatus" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></p>
+        <div class="stitch-preview-card">
+          <h3>結合プレビュー</h3>
+          <div class="wide-scroll"><canvas id="stitchCanvas"></canvas></div>
+          <div id="fourInfo" class="info-strip"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="step-panel" data-step="3" aria-labelledby="step3Title">
+      <div class="section-heading">
+        <h2 id="step3Title">表示と境界を確認</h2>
+        <p>X風表示は近似です。画像自体には余白や角丸を追加しません。</p>
+      </div>
+
+      <div class="tab-row" role="tablist" aria-label="プレビュー表示">
+        <button id="previewTabCarousel" class="tab active" data-preview-tab="carousel" type="button" role="tab" aria-controls="previewPaneCarousel" aria-selected="true">X表示（近似）</button>
+        <button id="previewTabFull" class="tab" data-preview-tab="full" type="button" role="tab" aria-controls="previewPaneFull" aria-selected="false" tabindex="-1">全体</button>
+        <button id="previewTabBoundaries" class="tab" data-preview-tab="boundaries" type="button" role="tab" aria-controls="previewPaneBoundaries" aria-selected="false" tabindex="-1">境界</button>
+      </div>
+
+      <div id="previewPaneCarousel" class="preview-pane active" data-preview-pane="carousel" role="tabpanel" aria-labelledby="previewTabCarousel">
+        <div class="phone-frame" role="region" aria-roledescription="カルーセル" aria-label="X風の4枚プレビュー">
+          <div class="mock-post-head"><span class="mock-avatar"></span><span><b>プレビュー</b><small>@local</small></span></div>
+          <div id="carouselPreview" class="x-carousel" aria-label="X風カルーセル"></div>
+          <div class="carousel-controls">
+            <button id="carouselPrevButton" class="secondary" type="button">前へ</button>
+            <span id="carouselStatus" role="status" aria-live="polite" aria-atomic="true">1 / 4</span>
+            <button id="carouselNextButton" class="secondary" type="button">次へ</button>
+          </div>
+        </div>
+        <p class="helper-text">左右にスワイプ、または「前へ」「次へ」で、顔・手・装飾の切れ方を確認できます。</p>
+      </div>
+
+      <div id="previewPaneFull" class="preview-pane" data-preview-pane="full" role="tabpanel" aria-labelledby="previewTabFull" tabindex="0" hidden>
+        <div class="wide-scroll full-preview-scroll"><canvas id="fullPreviewCanvas" width="1" height="1" role="img" aria-label="4枚を横に並べた全体プレビュー"></canvas></div>
+      </div>
+
+      <div id="previewPaneBoundaries" class="preview-pane" data-preview-pane="boundaries" role="tabpanel" aria-labelledby="previewTabBoundaries" tabindex="0" hidden>
+        <label class="inline-toggle"><input id="boundaryGapToggle" type="checkbox" checked><span>白い隙間を表示</span></label>
+        <div id="boundaryPreview" class="boundary-list"></div>
+      </div>
+
+      <div id="diagnosticsOverview" class="diagnostics-overview" data-status="idle" aria-busy="false">
+        <span id="diagnosticsOverviewIcon" class="diagnostics-overview-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+        <div class="diagnostics-overview-copy">
+          <strong>自動検査</strong>
+          <p id="diagnosticsSummary" class="diagnostics-summary" role="status" aria-live="polite" aria-atomic="true">検査を開始します。</p>
+        </div>
+      </div>
+
+      <section class="diagnostics-card" aria-labelledby="diagnosticsTitle" aria-busy="false">
+        <div class="diagnostics-title-row">
+          <h3 id="diagnosticsTitle">自動検査</h3>
+          <button id="rerunDiagnosticsButton" type="button" class="ghost small">再検査</button>
+        </div>
+        <details id="diagnosticsDetails" class="diagnostics-details">
+          <summary>検査の詳細</summary>
+          <div id="diagnosticsList" class="diagnostics-list" aria-live="polite" aria-atomic="false"></div>
+        </details>
+      </section>
+    </section>
+
+    <section class="step-panel" data-step="4" aria-labelledby="step4Title">
+      <div class="section-heading">
+        <h2 id="step4Title">保存・共有</h2>
+        <p id="exportDescription"></p>
+      </div>
+
+      <details id="exportSettingsDetails" class="export-settings">
+        <summary>書き出し設定 <span id="exportSettingsSummary">JPEG・品質92・各画像</span></summary>
+        <div class="export-settings-body">
+          <label>
+            <span>形式</span>
+            <select id="formatSelect">
+              <option value="image/jpeg">JPEG</option>
+              <option value="image/png">PNG</option>
+            </select>
+          </label>
+          <label id="qualityField">
+            <span>JPEG品質 <output id="qualityValue">92</output></span>
+            <input id="qualityRange" type="range" min="70" max="100" value="92">
+          </label>
+        </div>
+      </details>
+
+      <div id="exportSummary" class="export-summary"></div>
+      <div id="exportSafetyAlert" class="alert warning" role="alert" hidden></div>
+      <p id="exportState" class="export-state" role="status" aria-live="polite" aria-atomic="true">未生成</p>
+
+      <div class="export-cancel-actions">
+        <button id="cancelExportButton" class="danger" type="button" hidden>中止</button>
+      </div>
+
+      <div id="progressArea" class="progress-area" role="status" aria-live="polite" aria-atomic="true" hidden>
+        <div class="progress-label"><span id="progressText">準備しています</span><span id="progressPercent" hidden></span></div>
+        <progress id="exportProgress" max="100"></progress>
+      </div>
+
+      <div id="exportError" class="alert error" role="alert" hidden></div>
+
+      <div id="exportResults" class="export-results" hidden>
+        <section id="androidDownloadCard" class="save-destination-card android-download-card" hidden aria-labelledby="androidDownloadTitle">
+          <div class="save-card-copy">
+            <span class="save-card-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" focusable="false"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg></span>
+            <div><h3 id="androidDownloadTitle">4枚をダウンロード</h3><p>Chromeから複数ファイルの確認が表示された場合は、［許可］を選んでください。</p></div>
+          </div>
+          <button id="androidDownloadButton" class="secondary wide-button" type="button">4枚をダウンロード</button>
+          <p id="androidDownloadStatus" class="alert warning" role="status" aria-live="polite" aria-atomic="true" hidden></p>
+          <details id="androidPermissionHelp" class="android-permission-help" hidden>
+            <summary>確認が表示されない・画像が足りない場合</summary>
+            <div><p>Chromeのサイト情報から［権限］→［自動ダウンロード］を許可し、もう一度試してください。下の個別ボタンから足りない画像だけ保存することもできます。</p></div>
+          </details>
+        </section>
+        <section id="photoSaveCard" class="save-destination-card photo-save-card" aria-labelledby="photoSaveTitle">
+          <div class="save-card-copy">
+            <span id="saveCardIcon" class="save-card-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m5 17 4-4 3 3 2-2 5 3"/></svg></span>
+            <div>
+              <h3 id="photoSaveTitle">写真アプリへ保存</h3>
+              <p id="photoSaveSupportText">共有シートから「4枚の画像を保存」を選びます。</p>
+            </div>
+          </div>
+          <button id="shareButton" class="secondary wide-button" type="button">写真アプリに保存</button>
+          <button id="photoFallbackButton" class="ghost wide-button" type="button">「画像を保存」が表示されない場合</button>
+        </section>
+
+        <details id="fileSaveDetails" class="file-save-details">
+          <summary id="fileSaveSummary">ファイルに保存</summary>
+          <div class="file-save-body">
+            <h3 id="fileSaveTitle">端末へ保存</h3>
+            <p id="fileSaveDescription">個別画像として「ファイル」アプリやダウンロードフォルダへ保存します。</p>
+            <section id="directorySaveCard" class="save-destination-card directory-save-card" hidden aria-labelledby="directorySaveTitle">
+              <div class="save-card-copy">
+                <span class="save-card-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" focusable="false"><path d="M3 6h7l2 2h9v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M12 11v6M9 14l3 3 3-3"/></svg></span>
+                <div><h3 id="directorySaveTitle">保存先フォルダを選ぶ</h3><p id="directorySaveDescription">選択したフォルダに4枚の画像を保存します。</p></div>
+              </div>
+              <button id="directorySaveButton" class="secondary wide-button" type="button">保存先を選んで4枚を保存</button>
+              <button id="retryDirectorySaveButton" class="secondary wide-button" type="button" hidden>未保存分を再試行</button>
+            </section>
+            <div class="result-actions">
+              <button id="zipButton" class="secondary" type="button">4枚をZIPで保存</button>
+              <button id="cancelZipButton" class="danger" type="button" hidden>ZIP作成を中止</button>
+              <button id="joinedDownloadButton" class="secondary" type="button" hidden>結合画像をファイルに保存</button>
+            </div>
+            <div id="fileResultList" class="file-result-list"></div>
+          </div>
+        </details>
+        <details id="optionalShareDetails" class="optional-share-details" hidden>
+          <summary>その他の方法</summary>
+          <div class="optional-share-body">
+            <p>対応しているアプリへ画像を共有できます。</p>
+            <button id="optionalShareButton" class="secondary wide-button" type="button">4枚を共有</button>
+          </div>
+        </details>
+        <p id="exportStatus" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></p>
+      </div>
+    </section>
+
+    <nav class="bottom-nav action-dock" aria-label="ステップ移動">
+      <button id="backButton" class="secondary" type="button" disabled>戻る</button>
+      <button id="nextButton" class="primary" type="button" disabled>次へ</button>
+    </nav>
+  </main>
+
+  <footer class="app-footer">
+    <span>画像は外部へ送信しません</span>
+    <span aria-label="バージョン 0.5.0-rc.8">v0.5.0-rc.8</span>
+  </footer>
+
+
+
+  <dialog id="photoSaveDialog" class="save-dialog" aria-labelledby="photoDialogTitle" aria-describedby="photoDialogLead">
+    <div class="dialog-shell">
+      <div class="dialog-heading">
+        <div>
+          <h2 id="photoDialogTitle" tabindex="-1">写真アプリへの保存</h2>
+          <p id="photoDialogLead">共有シートから写真ライブラリへの保存操作を選びます。</p>
+        </div>
+        <button id="closePhotoDialogButton" class="icon-button" type="button" aria-label="閉じる"><svg class="icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+
+      <div id="shareGuideView">
+        <ol class="save-instructions">
+          <li>下の「共有シートを開く」を押します。</li>
+          <li>共有シートを下へスクロールします。</li>
+          <li>「4枚の画像を保存」または「画像を保存」を選びます。</li>
+        </ol>
+        <p class="dialog-note">Webサイトから写真アプリへ無確認で直接追加することはできません。保存先は共有シート上で選択してください。</p>
+        <div class="dialog-actions">
+          <button id="openShareSheetButton" class="primary" type="button">共有シートを開く</button>
+          <button id="showFallbackMethodsButton" class="secondary" type="button">別の保存方法を見る</button>
+        </div>
+      </div>
+
+      <div id="fallbackMethodsView" hidden>
+        <div class="fallback-heading">
+          <div>
+            <h3>1枚ずつ保存する</h3>
+            <p>各画像の「この1枚を共有」を押すか、画像を長押しして「写真に保存」を選びます。</p>
+          </div>
+          <button id="backToShareGuideButton" class="ghost small" type="button">案内へ戻る</button>
+        </div>
+        <div id="fallbackImageList" class="fallback-image-list"></div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="androidDownloadDialog" class="save-dialog" aria-labelledby="androidDownloadDialogTitle" aria-describedby="androidDownloadDialogLead">
+    <div class="dialog-shell">
+      <div class="dialog-heading">
+        <div>
+          <h2 id="androidDownloadDialogTitle" tabindex="-1">4枚をダウンロード</h2>
+          <p id="androidDownloadDialogLead">次の操作で4枚の画像ファイルを順番にダウンロードします。</p>
+        </div>
+        <button id="closeAndroidDownloadDialogButton" class="icon-button" type="button" aria-label="閉じる"><svg class="icon" viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <ol class="save-instructions">
+        <li>［ダウンロードを開始］を押します。</li>
+        <li>Chromeから複数ファイルのダウンロード確認が表示された場合は、［許可］を選びます。</li>
+        <li>画像が足りない場合は、結果画面からその画像だけ再ダウンロードできます。</li>
+      </ol>
+      <p class="dialog-note">ブラウザは保存結果をWebアプリへ通知しないため、完了後に4枚そろっていることを確認してください。</p>
+      <div class="dialog-actions">
+        <button id="startAndroidDownloadsButton" class="primary" type="button">ダウンロードを開始</button>
+        <button id="cancelAndroidDownloadsButton" class="secondary" type="button">キャンセル</button>
+      </div>
+    </div>
+  </dialog>
+
+  <noscript>このツールにはJavaScriptが必要です。</noscript>
+  <script src="core.js?v=0.5.0-rc.8"></script>
+  <script src="diagnostics.js?v=0.5.0-rc.8"></script>
+  <script src="app.js?v=0.5.0-rc.8"></script>
+</body>
+</html>
